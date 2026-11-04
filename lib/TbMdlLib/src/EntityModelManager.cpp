@@ -194,11 +194,22 @@ Result<EntityModel> EntityModelManager::loadModel(
 
   return mdl::loadEntityModelAsync(
     m_gameFileSystem,
-    materialConfig,
+    [this]() { return loadPalette(); },
     modelPath,
     loadMaterial,
     m_createResource,
     m_logger);
+}
+
+std::optional<Palette> EntityModelManager::loadPalette() const
+{
+  return mdl::loadPalette(m_gameFileSystem, m_gameInfo.gameConfig.materialConfig.palette)
+         | kdl::transform([](auto palette) { return std::optional{std::move(palette)}; })
+         | kdl::transform_error([&](const auto& e) {
+             m_logger.error() << "Could not load palette: " << e.msg;
+             return std::optional<Palette>{};
+           })
+         | kdl::value();
 }
 
 void EntityModelManager::prepare(gl::Gl& gl, gl::VboManager& vboManager)

@@ -25,6 +25,7 @@
 #include "gl/Material.h"
 #include "mdl/CatchConfig.h"
 #include "mdl/EntityModel.h"
+#include "mdl/LoadPaletteFunc.h"
 #include "mdl/LoadSpriteModel.h"
 #include "mdl/Palette.h"
 
@@ -59,11 +60,17 @@ TEST_CASE("loadSpriteModel")
   const auto y1 = -256.0f;
   const auto y2 = 256.0f;
 
+  const auto loadFixtureWithPalette =
+    [&](const std::string& name, const LoadPaletteFunc& loadPalette) {
+      const auto sprPath =
+        getFixtureRoot() / "test/mdl/LoadSpriteModel" / (name + ".spr");
+      auto sprFile = fs::Disk::openFile(sprPath) | kdl::value();
+      auto reader = sprFile->reader().buffer();
+      return loadSpriteModel(name, reader, loadPalette, logger);
+    };
+
   const auto loadFixture = [&](const std::string& name) {
-    const auto sprPath = getFixtureRoot() / "test/mdl/LoadSpriteModel" / (name + ".spr");
-    auto sprFile = fs::Disk::openFile(sprPath) | kdl::value();
-    auto reader = sprFile->reader().buffer();
-    return loadSpriteModel(name, reader, palette, logger);
+    return loadFixtureWithPalette(name, [&]() { return std::optional{palette}; });
   };
 
   SECTION("billboard orientations")
@@ -175,6 +182,29 @@ TEST_CASE("loadSpriteModel")
         (skin->effectiveBlendFunc().enable == gl::MaterialBlendFunc::Enable::UseFactors)
         == (expectedAlphaDomain == img::ImageAlphaDomain::Graduated));
     }) | kdl::transform_error([](const auto& e) { FAIL(e); });
+  }
+
+  SECTION("loads the palette only if needed")
+  {
+    auto loadPaletteCount = size_t(0);
+    const auto loadMissingPalette = [&]() {
+      ++loadPaletteCount;
+      return std::optional<Palette>{};
+    };
+
+    SECTION("Quake1 sprites require the palette")
+    {
+      CHECK(
+        loadFixtureWithPalette("ViewPlaneParallelUpright", loadMissingPalette)
+        == Result<EntityModelData>{Error{"Missing palette"}});
+      CHECK(loadPaletteCount == 1u);
+    }
+
+    SECTION("Half-Life sprites have an embedded palette")
+    {
+      CHECK(loadFixtureWithPalette("RenderModeNormal", loadMissingPalette).is_success());
+      CHECK(loadPaletteCount == 0u);
+    }
   }
 }
 

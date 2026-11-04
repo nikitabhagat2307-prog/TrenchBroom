@@ -22,6 +22,7 @@
 #include "base/Result.h"
 #include "fs/Reader.h"
 #include "mdl/EntityModel.h"
+#include "mdl/LoadPaletteFunc.h"
 
 #include <filesystem>
 #include <string>
@@ -37,14 +38,13 @@ class FileSystem;
 
 namespace mdl
 {
-class Palette;
 
 bool canLoadMd2Model(const std::filesystem::path& path, fs::Reader reader);
 
 Result<EntityModelData> loadMd2Model(
   std::string name,
   fs::Reader reader,
-  const Palette& palette,
+  const LoadPaletteFunc& loadPalette,
   const fs::FileSystem& fs,
   Logger& logger);
 

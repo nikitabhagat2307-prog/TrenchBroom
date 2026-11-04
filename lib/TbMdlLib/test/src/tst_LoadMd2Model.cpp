@@ -25,6 +25,8 @@
 #include "mdl/LoadMd2Model.h"
 #include "mdl/Palette.h"
 
+#include <optional>
+
 #include <catch2/catch_test_macros.hpp>
 
 namespace tb::mdl
@@ -34,7 +36,7 @@ TEST_CASE("loadMd2Model")
 {
   auto logger = NullLogger{};
   auto fs = fs::VirtualFileSystem{};
-  const auto palette = Palette{nullptr};
+  const auto loadPalette = []() { return std::optional<Palette>{}; };
 
   SECTION("valid MD2 model")
   {
@@ -42,7 +44,7 @@ TEST_CASE("loadMd2Model")
     const auto file = fs::Disk::openFile(path) | kdl::value();
 
     auto reader = file->reader().buffer();
-    loadMd2Model("cube", reader, palette, fs, logger)
+    loadMd2Model("cube", reader, loadPalette, fs, logger)
       | kdl::transform([](const auto& modelData) {
           CHECK(modelData.surfaceCount() == 1u);
           CHECK(modelData.frameCount() == 1u);
@@ -66,7 +68,7 @@ TEST_CASE("loadMd2Model")
 
     auto reader = file->reader().buffer();
     CHECK(
-      loadMd2Model("cube", reader, palette, fs, logger)
+      loadMd2Model("cube", reader, loadPalette, fs, logger)
       == Result<mdl::EntityModelData>{Error{"Unknown MD2 model ident: 305419896"}});
   }
 }

@@ -22,6 +22,7 @@
 #include "base/Result.h"
 #include "fs/Reader.h"
 #include "mdl/EntityModel.h"
+#include "mdl/LoadPaletteFunc.h"
 
 #include <filesystem>
 #include <string>
@@ -32,12 +33,14 @@ class Logger;
 
 namespace mdl
 {
-class Palette;
 
 bool canLoadMdlModel(const std::filesystem::path& path, fs::Reader reader);
 
 Result<EntityModelData> loadMdlModel(
-  const std::string& name, fs::Reader reader, const Palette& palette, Logger& logger);
+  const std::string& name,
+  fs::Reader reader,
+  const LoadPaletteFunc& loadPalette,
+  Logger& logger);
 
 } // namespace mdl
 } // namespace tb

@@ -86,7 +86,7 @@ struct FaceInfo
 std::vector<gl::Material> parseMaterials(
   fs::Reader reader,
   const int version,
-  const Palette& palette,
+  const std::optional<Palette>& palette,
   const fs::FileSystem& fs,
   Logger& logger)
 {
@@ -109,7 +109,7 @@ std::vector<gl::Material> parseMaterials(
     const auto isMasked = isMaskedTextureName(materialName);
 
     result.push_back(
-      (version == 29 ? loadIdMipTexture(textureReader, palette, isMasked)
+      (version == 29 ? loadIdMipTexture(textureReader, *palette, isMasked)
                      : loadHlMipTexture(textureReader, isMasked))
       | kdl::or_else(makeReadTextureErrorHandler(fs, logger))
       | kdl::transform([&](auto texture) {
@@ -284,7 +284,7 @@ bool canLoadBspModel(const std::filesystem::path& path, fs::Reader reader)
 Result<EntityModelData> loadBspModel(
   const std::string& name,
   fs::Reader reader,
-  const Palette& palette,
+  const LoadPaletteFunc& loadPalette,
   const fs::FileSystem& fs,
   Logger& logger)
 {
@@ -294,6 +294,12 @@ Result<EntityModelData> loadBspModel(
     if (!isBSPVersionSupported(version))
     {
       return Error{"Unsupported BSP model version: " + std::to_string(version)};
+    }
+
+    const auto palette = version == 29 ? loadPalette() : std::optional<Palette>{};
+    if (version == 29 && !palette)
+    {
+      return Error{"Missing palette"};
     }
 
     reader.seekFromBegin(BspLayout::DirModelAddress);

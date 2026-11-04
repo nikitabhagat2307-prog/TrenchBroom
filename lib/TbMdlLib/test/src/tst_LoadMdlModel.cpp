@@ -29,6 +29,8 @@
 
 #include "kd/result.h"
 
+#include <optional>
+
 #include <catch2/catch_test_macros.hpp>
 
 namespace tb::mdl
@@ -42,6 +44,7 @@ TEST_CASE("loadMdlModel")
   auto fs = fs::DiskFileSystem{getFixtureRoot()};
   auto paletteFile = fs.openFile(palettePath) | kdl::value();
   const auto palette = mdl::loadPalette(*paletteFile, palettePath) | kdl::value();
+  const auto loadPalette = [&]() { return std::optional{palette}; };
 
   SECTION("valid MDL model")
   {
@@ -49,7 +52,7 @@ TEST_CASE("loadMdlModel")
     const auto mdlFile = fs::Disk::openFile(mdlPath) | kdl::value();
 
     auto reader = mdlFile->reader().buffer();
-    loadMdlModel("armor", reader, palette, logger)
+    loadMdlModel("armor", reader, loadPalette, logger)
       | kdl::transform([](const auto& modelData) {
           CHECK(modelData.surfaceCount() == 1u);
           CHECK(modelData.frameCount() == 1u);
@@ -74,6 +77,18 @@ TEST_CASE("loadMdlModel")
       | kdl::transform_error([](const auto& e) { FAIL(e); });
   }
 
+  SECTION("missing palette")
+  {
+    const auto mdlPath = getFixtureRoot() / "test/mdl/LoadMdlModel/armor.mdl";
+    const auto mdlFile = fs::Disk::openFile(mdlPath) | kdl::value();
+
+    auto reader = mdlFile->reader().buffer();
+    CHECK(
+      loadMdlModel(
+        "armor", reader, []() { return std::optional<Palette>{}; }, logger)
+      == Result<mdl::EntityModelData>{Error{"Missing palette"}});
+  }
+
   SECTION("invalid MDL file")
   {
     const auto mdlPath = getFixtureRoot() / "test/mdl/LoadMdlModel/invalid.mdl";
@@ -81,7 +96,7 @@ TEST_CASE("loadMdlModel")
 
     auto reader = mdlFile->reader().buffer();
     CHECK(
-      loadMdlModel("armor", reader, palette, logger)
+      loadMdlModel("armor", reader, loadPalette, logger)
       == Result<mdl::EntityModelData>{Error{"Unknown MDL model version: 538976288"}});
   }
 }

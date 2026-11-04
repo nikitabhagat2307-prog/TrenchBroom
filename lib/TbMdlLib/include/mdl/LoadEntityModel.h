@@ -21,6 +21,7 @@
 
 #include "base/Result.h"
 #include "mdl/EntityModelDataResource.h"
+#include "mdl/LoadPaletteFunc.h"
 
 #include <filesystem>
 #include <functional>
@@ -42,20 +43,19 @@ class FileSystem;
 namespace mdl
 {
 class EntityModel;
-struct MaterialConfig;
 
 using LoadMaterialFunc = std::function<gl::Material(const std::filesystem::path&)>;
 
 Result<EntityModel> loadEntityModelSync(
   const fs::FileSystem& fs,
-  const MaterialConfig& materialConfig,
+  const LoadPaletteFunc& loadPalette,
   const std::filesystem::path& path,
   const LoadMaterialFunc& loadMaterial,
   Logger& logger);
 
 EntityModel loadEntityModelAsync(
   const fs::FileSystem& fs,
-  const MaterialConfig& materialConfig,
+  const LoadPaletteFunc& loadPalette,
   const std::filesystem::path& path,
   const LoadMaterialFunc& loadMaterial,
   const CreateEntityModelDataResource& createResource,

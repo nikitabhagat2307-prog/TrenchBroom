@@ -19,6 +19,7 @@
 
 #include "TestEnvironment.h"
 #include "base/Result.h"
+#include "fs/DiskFileSystem.h"
 #include "fs/DiskIO.h"
 #include "mdl/CatchConfig.h"
 #include "mdl/Palette.h"
@@ -230,6 +231,9 @@ TEST_CASE("Palette")
       makePalette(expectedPaletteData, PaletteColorFormat::Rgb);
 
     CHECK(loadPalette(*file, filePath) == expectedPalette);
+
+    const auto fs = fs::DiskFileSystem{basePath};
+    CHECK(loadPalette(fs, filename) == expectedPalette);
   }
 }
 

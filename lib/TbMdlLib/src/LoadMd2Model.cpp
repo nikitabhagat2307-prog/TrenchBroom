@@ -25,7 +25,9 @@
 #include "gl/IndexRangeMapBuilder.h"
 #include "gl/Material.h"
 #include "gl/PrimType.h"
+#include "mdl/LoadMipTexture.h"
 #include "mdl/LoadSkin.h"
+#include "mdl/LoadWalTexture.h"
 
 #include "kd/path_utils.h"
 
@@ -246,10 +248,15 @@ auto parseMeshes(fs::Reader reader, const size_t /* commandCount */)
   return meshes;
 }
 
+bool requiresPalette(const std::filesystem::path& skinPath)
+{
+  return isIdMipTexture(skinPath) || isWalTexture(skinPath);
+}
+
 void loadSkins(
   EntityModelSurface& surface,
   const std::vector<std::string>& skins,
-  const Palette& palette,
+  const LoadPaletteFunc& loadPalette,
   const fs::FileSystem& fs,
   Logger& logger)
 {
@@ -258,6 +265,7 @@ void loadSkins(
 
   for (const auto& skin : skins)
   {
+    const auto palette = requiresPalette(skin) ? loadPalette() : std::optional<Palette>{};
     materials.push_back(loadSkin(skin, fs, palette, logger));
   }
 
@@ -346,7 +354,7 @@ bool canLoadMd2Model(const std::filesystem::path& path, fs::Reader reader)
 Result<EntityModelData> loadMd2Model(
   std::string name,
   fs::Reader reader,
-  const Palette& palette,
+  const LoadPaletteFunc& loadPalette,
   const fs::FileSystem& fs,
   Logger& logger)
 {
@@ -387,7 +395,7 @@ Result<EntityModelData> loadMd2Model(
     auto data = EntityModelData{PitchType::Normal, Orientation::Oriented};
 
     auto& surface = data.addSurface(name, frameCount);
-    loadSkins(surface, skins, palette, fs, logger);
+    loadSkins(surface, skins, loadPalette, fs, logger);
 
     const auto frameSize =
       6 * sizeof(float) + Md2Layout::FrameNameLength + vertexCount * 4;

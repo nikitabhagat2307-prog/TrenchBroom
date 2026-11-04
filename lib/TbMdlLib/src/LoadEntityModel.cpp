@@ -23,7 +23,6 @@
 #include "fs/FileSystem.h"
 #include "gl/Resource.h"
 #include "mdl/EntityModel.h"
-#include "mdl/GameConfig.h"
 #include "mdl/LoadAseModel.h"
 #include "mdl/LoadAssimpModel.h"
 #include "mdl/LoadBspModel.h"
@@ -35,7 +34,6 @@
 #include "mdl/LoadMdlModel.h"
 #include "mdl/LoadMdxModel.h"
 #include "mdl/LoadSpriteModel.h"
-#include "mdl/Palette.h"
 
 #include "kd/result.h"
 
@@ -48,16 +46,9 @@ namespace tb::mdl
 namespace
 {
 
-auto loadPalette(const fs::FileSystem& fs, const MaterialConfig& materialConfig)
-{
-  const auto& path = materialConfig.palette;
-  return fs.openFile(path)
-         | kdl::and_then([&](auto file) { return mdl::loadPalette(*file, path); });
-}
-
 Result<EntityModelData> loadEntityModelData(
   const fs::FileSystem& fs,
-  const MaterialConfig& materialConfig,
+  const LoadPaletteFunc& loadPalette,
   const std::filesystem::path& path,
   const LoadMaterialFunc& loadMaterial,
   Logger& logger)
@@ -68,27 +59,19 @@ Result<EntityModelData> loadEntityModelData(
 
            if (canLoadMdlModel(path, reader))
            {
-             return loadPalette(fs, materialConfig) | kdl::and_then([&](auto palette) {
-                      return loadMdlModel(modelName, reader, palette, logger);
-                    });
+             return loadMdlModel(modelName, reader, loadPalette, logger);
            }
            if (canLoadMd2Model(path, reader))
            {
-             return loadPalette(fs, materialConfig) | kdl::and_then([&](auto palette) {
-                      return loadMd2Model(modelName, reader, palette, fs, logger);
-                    });
+             return loadMd2Model(modelName, reader, loadPalette, fs, logger);
            }
            if (canLoadBspModel(path, reader))
            {
-             return loadPalette(fs, materialConfig) | kdl::and_then([&](auto palette) {
-                      return loadBspModel(modelName, reader, palette, fs, logger);
-                    });
+             return loadBspModel(modelName, reader, loadPalette, fs, logger);
            }
            if (canLoadSpriteModel(path, reader))
            {
-             return loadPalette(fs, materialConfig) | kdl::and_then([&](auto palette) {
-                      return loadSpriteModel(modelName, reader, palette, logger);
-                    });
+             return loadSpriteModel(modelName, reader, loadPalette, logger);
            }
            if (canLoadMd3Model(path, reader))
            {
@@ -128,13 +111,13 @@ Result<EntityModelData> loadEntityModelData(
 
 gl::ResourceLoader<EntityModelData> makeEntityModelDataResourceLoader(
   const fs::FileSystem& fs,
-  const MaterialConfig& materialConfig,
+  const LoadPaletteFunc& loadPalette,
   const std::filesystem::path& path,
   const LoadMaterialFunc& loadMaterial,
   Logger& logger)
 {
-  return [&fs, materialConfig, path, loadMaterial, &logger]() {
-    return loadEntityModelData(fs, materialConfig, path, loadMaterial, logger);
+  return [&fs, loadPalette, path, loadMaterial, &logger]() {
+    return loadEntityModelData(fs, loadPalette, path, loadMaterial, logger);
   };
 }
 
@@ -142,12 +125,12 @@ gl::ResourceLoader<EntityModelData> makeEntityModelDataResourceLoader(
 
 Result<EntityModel> loadEntityModelSync(
   const fs::FileSystem& fs,
-  const MaterialConfig& materialConfig,
+  const LoadPaletteFunc& loadPalette,
   const std::filesystem::path& path,
   const LoadMaterialFunc& loadMaterial,
   Logger& logger)
 {
-  return loadEntityModelData(fs, materialConfig, path, loadMaterial, logger)
+  return loadEntityModelData(fs, loadPalette, path, loadMaterial, logger)
          | kdl::transform([&](auto modelData) {
              auto modelName = path.filename().string();
              auto modelResource = createEntityModelDataResource(std::move(modelData));
@@ -157,7 +140,7 @@ Result<EntityModel> loadEntityModelSync(
 
 EntityModel loadEntityModelAsync(
   const fs::FileSystem& fs,
-  const MaterialConfig& materialConfig,
+  const LoadPaletteFunc& loadPalette,
   const std::filesystem::path& path,
   const LoadMaterialFunc& loadMaterial,
   const CreateEntityModelDataResource& createResource,
@@ -165,7 +148,7 @@ EntityModel loadEntityModelAsync(
 {
   auto name = path.filename().string();
   auto loader =
-    makeEntityModelDataResourceLoader(fs, materialConfig, path, loadMaterial, logger);
+    makeEntityModelDataResourceLoader(fs, loadPalette, path, loadMaterial, logger);
   auto resource = createResource(std::move(loader));
   return EntityModel{std::move(name), std::move(resource)};
 }

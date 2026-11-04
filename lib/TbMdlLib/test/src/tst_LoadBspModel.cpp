@@ -31,6 +31,8 @@
 
 #include "kd/result.h"
 
+#include <optional>
+
 #include <catch2/catch_test_macros.hpp>
 
 namespace tb::mdl
@@ -44,6 +46,7 @@ TEST_CASE("loadBspModel")
   auto fs = fs::DiskFileSystem{getFixtureRoot()};
   auto paletteFile = fs.openFile(palettePath) | kdl::value();
   const auto palette = mdl::loadPalette(*paletteFile, palettePath) | kdl::value();
+  const auto loadPalette = [&]() { return std::optional{palette}; };
 
   SECTION("valid Half-Life BSP")
   {
@@ -51,7 +54,7 @@ TEST_CASE("loadBspModel")
     const auto bspFile = fs::Disk::openFile(bspPath) | kdl::value();
 
     auto reader = bspFile->reader().buffer();
-    loadBspModel("hl", reader, palette, fs, logger)
+    loadBspModel("hl", reader, loadPalette, fs, logger)
       | kdl::transform([](const auto& bspData) {
           CHECK(bspData.surfaceCount() == 1u);
           CHECK(bspData.frameCount() == 1u);
@@ -64,6 +67,56 @@ TEST_CASE("loadBspModel")
       | kdl::transform_error([](const auto& e) { FAIL(e); });
   }
 
+  SECTION("valid Quake BSP")
+  {
+    const auto bspPath = getFixtureRoot() / "test/mdl/LoadBspModel/quake.bsp";
+    const auto bspFile = fs::Disk::openFile(bspPath) | kdl::value();
+
+    auto reader = bspFile->reader().buffer();
+    loadBspModel("quake", reader, loadPalette, fs, logger)
+      | kdl::transform([](const auto& bspData) {
+          CHECK(bspData.surfaceCount() == 1u);
+          CHECK(bspData.frameCount() == 1u);
+
+          const auto& surfaces = bspData.surfaces();
+          const auto& surface = surfaces.front();
+          CHECK(surface.skinCount() == 3u);
+          CHECK(surface.frameCount() == 1u);
+        })
+      | kdl::transform_error([](const auto& e) { FAIL(e); });
+  }
+
+  SECTION("loads the palette only if needed")
+  {
+    auto loadPaletteCount = size_t(0);
+    const auto loadMissingPalette = [&]() {
+      ++loadPaletteCount;
+      return std::optional<Palette>{};
+    };
+
+    SECTION("Quake BSPs require the palette")
+    {
+      const auto bspPath = getFixtureRoot() / "test/mdl/LoadBspModel/quake.bsp";
+      const auto bspFile = fs::Disk::openFile(bspPath) | kdl::value();
+
+      auto reader = bspFile->reader().buffer();
+      CHECK(
+        loadBspModel("quake", reader, loadMissingPalette, fs, logger)
+        == Result<mdl::EntityModelData>{Error{"Missing palette"}});
+      CHECK(loadPaletteCount == 1u);
+    }
+
+    SECTION("Half-Life BSPs have embedded palettes")
+    {
+      const auto bspPath = getFixtureRoot() / "test/mdl/LoadBspModel/hl.bsp";
+      const auto bspFile = fs::Disk::openFile(bspPath) | kdl::value();
+
+      auto reader = bspFile->reader().buffer();
+      CHECK(loadBspModel("hl", reader, loadMissingPalette, fs, logger).is_success());
+      CHECK(loadPaletteCount == 0u);
+    }
+  }
+
   SECTION("invalid BSP")
   {
     const auto bspPath = getFixtureRoot() / "test/mdl/LoadBspModel/invalid_version.bsp";
@@ -71,7 +124,7 @@ TEST_CASE("loadBspModel")
 
     auto reader = bspFile->reader().buffer();
     CHECK(
-      loadBspModel("hl", reader, palette, fs, logger)
+      loadBspModel("hl", reader, loadPalette, fs, logger)
       == Result<mdl::EntityModelData>{Error{"Unsupported BSP model version: 63"}});
   }
 }

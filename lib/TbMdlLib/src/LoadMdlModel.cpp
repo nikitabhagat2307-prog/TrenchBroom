@@ -312,7 +312,7 @@ bool canLoadMdlModel(const std::filesystem::path& path, fs::Reader reader)
 }
 
 Result<EntityModelData> loadMdlModel(
-  const std::string& name, fs::Reader reader, const Palette& palette, Logger&)
+  const std::string& name, fs::Reader reader, const LoadPaletteFunc& loadPalette, Logger&)
 {
   try
   {
@@ -341,11 +341,17 @@ Result<EntityModelData> loadMdlModel(
     /* const auto syncType = */ reader.readSize<int32_t>();
     const auto flags = reader.readInt<int32_t>();
 
+    const auto palette = loadPalette();
+    if (!palette)
+    {
+      return Error{"Missing palette"};
+    }
+
     auto data = EntityModelData{PitchType::MdlInverted, Orientation::Oriented};
     auto& surface = data.addSurface(name, frameCount);
 
     reader.seekFromBegin(MdlLayout::Skins);
-    parseSkins(reader, surface, skinCount, skinWidth, skinHeight, flags, name, palette);
+    parseSkins(reader, surface, skinCount, skinWidth, skinHeight, flags, name, *palette);
 
     const auto vertices = parseVertices(reader, vertexCount);
     const auto triangles = parseTriangles(reader, triangleCount);

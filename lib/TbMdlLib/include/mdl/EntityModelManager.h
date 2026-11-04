@@ -23,11 +23,13 @@
 #include "gl/ResourceId.h"
 #include "mdl/EntityModel.h"
 #include "mdl/ModelSpecification.h"
+#include "mdl/Palette.h"
 
 #include "kd/path_hash.h"
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -103,6 +105,7 @@ public:
 
 private:
   Result<EntityModel> loadModel(const std::filesystem::path& path) const;
+  std::optional<Palette> loadPalette() const;
 
 public:
   void prepare(gl::Gl& gl, gl::VboManager& vboManager);

@@ -197,11 +197,15 @@ Result<Palette> parseEmbeddedPalette(
   fs::Reader& reader,
   const RenderMode renderMode,
   const int version,
-  const Palette& defaultPalette)
+  const LoadPaletteFunc& loadPalette)
 {
   if (version != 2)
   {
-    return defaultPalette;
+    if (auto palette = loadPalette())
+    {
+      return *palette;
+    }
+    return Error{"Missing palette"};
   }
 
   const auto paletteSize = reader.readSize<int16_t>();
@@ -334,7 +338,7 @@ bool canLoadSpriteModel(const std::filesystem::path& path, fs::Reader reader)
 }
 
 Result<EntityModelData> loadSpriteModel(
-  const std::string& name, fs::Reader reader, const Palette& palette, Logger&)
+  const std::string& name, fs::Reader reader, const LoadPaletteFunc& loadPalette, Logger&)
 {
   // see https://www.gamers.org/dEngine/quake/spec/quake-spec34/qkspec_6.htm#CSPRF
 
@@ -371,7 +375,7 @@ Result<EntityModelData> loadSpriteModel(
 
                    const auto alphaDomain = spriteAlphaDomain(version, renderMode);
 
-                   return parseEmbeddedPalette(reader, renderMode, version, palette)
+                   return parseEmbeddedPalette(reader, renderMode, version, loadPalette)
                      .transform([&](auto embeddedPalette) {
                        auto data = EntityModelData{PitchType::Normal, orientationType};
                        auto& surface = data.addSurface(name, frameCount);
