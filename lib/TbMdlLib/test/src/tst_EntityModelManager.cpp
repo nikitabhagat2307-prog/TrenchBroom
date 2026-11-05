@@ -27,6 +27,12 @@
 #include "mdl/GameInfo.h"
 #include "mdl/ModelSpecification.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 
@@ -35,7 +41,22 @@ namespace tb::mdl
 namespace
 {
 
-GameInfo makeTestGameInfo()
+class CollectingLogger : public Logger
+{
+private:
+  std::vector<std::string> m_messages;
+
+public:
+  const std::vector<std::string>& messages() const { return m_messages; }
+
+private:
+  void doLog(const LogLevel, const std::string_view message) override
+  {
+    m_messages.emplace_back(message);
+  }
+};
+
+GameInfo makeTestGameInfo(std::filesystem::path palettePath)
 {
   return makeGameInfo(GameConfig{
     .name = "Test",
@@ -43,7 +64,7 @@ GameInfo makeTestGameInfo()
     .icon = {},
     .fileFormats = {},
     .fileSystemConfig = {},
-    .materialConfig = MaterialConfig{"", {}, "palette.lmp", {}, "", {}},
+    .materialConfig = MaterialConfig{"", {}, std::move(palettePath), {}, "", {}},
     .entityConfig = {},
     .faceAttribsConfig = {},
     .smartTags = {},
@@ -58,7 +79,7 @@ TEST_CASE("EntityModelManager")
 {
   auto logger = NullLogger{};
   auto fileSystem = fs::DiskFileSystem{getFixtureRoot() / "test/mdl/LoadMdlModel"};
-  const auto gameInfo = makeTestGameInfo();
+  const auto gameInfo = makeTestGameInfo("palette.lmp");
 
   auto manager = EntityModelManager{
     gameInfo,
@@ -85,6 +106,26 @@ TEST_CASE("EntityModelManager")
       const auto* model1 = manager.model("armor.mdl");
       const auto* model2 = manager.model("armor.mdl");
       CHECK(model1 == model2);
+    }
+
+    SECTION("loads a model that requires the palette if the palette is missing")
+    {
+      auto collectingLogger = CollectingLogger{};
+      const auto gameInfoWithMissingPalette = makeTestGameInfo("missing.lmp");
+      auto managerWithMissingPalette = EntityModelManager{
+        gameInfoWithMissingPalette,
+        fileSystem,
+        [](auto resourceLoader) {
+          return gl::createResourceSync(std::move(resourceLoader));
+        },
+        collectingLogger};
+
+      const auto* model = managerWithMissingPalette.model("armor.mdl");
+      REQUIRE(model != nullptr);
+      CHECK(model->data() != nullptr);
+      CHECK(std::ranges::any_of(collectingLogger.messages(), [](const auto& message) {
+        return message.starts_with("Could not load palette");
+      }));
     }
 
     SECTION("loads a model whose data is null if the underlying file does not exist")

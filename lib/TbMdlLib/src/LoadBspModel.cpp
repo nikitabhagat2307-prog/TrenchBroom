@@ -105,6 +105,12 @@ std::vector<gl::Material> parseMaterials(
     }
 
     auto materialName = readMipTextureName(reader);
+    if (version == 29 && !palette)
+    {
+      result.push_back(loadDefaultMaterial(fs, std::move(materialName), logger));
+      continue;
+    }
+
     auto textureReader = reader.subReaderFromBegin(size_t(offset)).buffer();
     const auto isMasked = isMaskedTextureName(materialName);
 
@@ -297,10 +303,6 @@ Result<EntityModelData> loadBspModel(
     }
 
     const auto palette = version == 29 ? loadPalette() : std::optional<Palette>{};
-    if (version == 29 && !palette)
-    {
-      return Error{"Missing palette"};
-    }
 
     reader.seekFromBegin(BspLayout::DirModelAddress);
     const auto modelsOffset = reader.readSize<int32_t>();

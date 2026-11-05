@@ -52,7 +52,7 @@ TEST_CASE("loadMdlModel")
     const auto mdlFile = fs::Disk::openFile(mdlPath) | kdl::value();
 
     auto reader = mdlFile->reader().buffer();
-    loadMdlModel("armor", reader, loadPalette, logger)
+    loadMdlModel("armor", reader, loadPalette, fs, logger)
       | kdl::transform([](const auto& modelData) {
           CHECK(modelData.surfaceCount() == 1u);
           CHECK(modelData.frameCount() == 1u);
@@ -83,10 +83,27 @@ TEST_CASE("loadMdlModel")
     const auto mdlFile = fs::Disk::openFile(mdlPath) | kdl::value();
 
     auto reader = mdlFile->reader().buffer();
-    CHECK(
-      loadMdlModel(
-        "armor", reader, []() { return std::optional<Palette>{}; }, logger)
-      == Result<mdl::EntityModelData>{Error{"Missing palette"}});
+    const auto expectedBounds = loadMdlModel("armor", reader, loadPalette, fs, logger)
+                                | kdl::transform([](const auto& modelData) {
+                                    return modelData.frames().front().bounds();
+                                  })
+                                | kdl::value();
+
+    loadMdlModel(
+      "armor", reader, []() { return std::optional<Palette>{}; }, fs, logger)
+      | kdl::transform([&](const auto& modelData) {
+          CHECK(modelData.surfaceCount() == 1u);
+          CHECK(modelData.frameCount() == 1u);
+
+          const auto& surfaces = modelData.surfaces();
+          const auto& surface = surfaces.front();
+          CHECK(surface.skinCount() == 3u);
+          CHECK(surface.frameCount() == 1u);
+
+          // the frame is only parsed correctly if the skin data was skipped correctly
+          CHECK(modelData.frames().front().bounds() == expectedBounds);
+        })
+      | kdl::transform_error([](const auto& e) { FAIL(e); });
   }
 
   SECTION("invalid MDL file")
@@ -96,7 +113,7 @@ TEST_CASE("loadMdlModel")
 
     auto reader = mdlFile->reader().buffer();
     CHECK(
-      loadMdlModel("armor", reader, loadPalette, logger)
+      loadMdlModel("armor", reader, loadPalette, fs, logger)
       == Result<mdl::EntityModelData>{Error{"Unknown MDL model version: 538976288"}});
   }
 }

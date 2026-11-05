@@ -66,7 +66,7 @@ TEST_CASE("loadSpriteModel")
         getFixtureRoot() / "test/mdl/LoadSpriteModel" / (name + ".spr");
       auto sprFile = fs::Disk::openFile(sprPath) | kdl::value();
       auto reader = sprFile->reader().buffer();
-      return loadSpriteModel(name, reader, loadPalette, logger);
+      return loadSpriteModel(name, reader, loadPalette, diskFs, logger);
     };
 
   const auto loadFixture = [&](const std::string& name) {
@@ -194,9 +194,17 @@ TEST_CASE("loadSpriteModel")
 
     SECTION("Quake1 sprites require the palette")
     {
-      CHECK(
-        loadFixtureWithPalette("ViewPlaneParallelUpright", loadMissingPalette)
-        == Result<EntityModelData>{Error{"Missing palette"}});
+      loadFixtureWithPalette("ViewPlaneParallelUpright", loadMissingPalette)
+        | kdl::transform([&](const auto& modelData) {
+            CHECK(modelData.frameCount() == 1u);
+
+            const auto& surface = modelData.surfaces().front();
+            CHECK(surface.skinCount() == 1u);
+
+            const auto& frame = modelData.frames().front();
+            CHECK(frame.bounds() == vm::bbox3f{{x1, x1, y1}, {x2, x2, y2}});
+          })
+        | kdl::transform_error([](const auto& e) { FAIL(e); });
       CHECK(loadPaletteCount == 1u);
     }
 

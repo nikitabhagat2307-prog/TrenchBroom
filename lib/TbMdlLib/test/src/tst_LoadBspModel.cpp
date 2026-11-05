@@ -100,9 +100,17 @@ TEST_CASE("loadBspModel")
       const auto bspFile = fs::Disk::openFile(bspPath) | kdl::value();
 
       auto reader = bspFile->reader().buffer();
-      CHECK(
-        loadBspModel("quake", reader, loadMissingPalette, fs, logger)
-        == Result<mdl::EntityModelData>{Error{"Missing palette"}});
+      loadBspModel("quake", reader, loadMissingPalette, fs, logger)
+        | kdl::transform([](const auto& bspData) {
+            CHECK(bspData.surfaceCount() == 1u);
+            CHECK(bspData.frameCount() == 1u);
+
+            const auto& surfaces = bspData.surfaces();
+            const auto& surface = surfaces.front();
+            CHECK(surface.skinCount() == 3u);
+            CHECK(surface.frameCount() == 1u);
+          })
+        | kdl::transform_error([](const auto& e) { FAIL(e); });
       CHECK(loadPaletteCount == 1u);
     }
 

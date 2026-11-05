@@ -59,7 +59,7 @@ Result<EntityModelData> loadEntityModelData(
 
            if (canLoadMdlModel(path, reader))
            {
-             return loadMdlModel(modelName, reader, loadPalette, logger);
+             return loadMdlModel(modelName, reader, loadPalette, fs, logger);
            }
            if (canLoadMd2Model(path, reader))
            {
@@ -71,7 +71,7 @@ Result<EntityModelData> loadEntityModelData(
            }
            if (canLoadSpriteModel(path, reader))
            {
-             return loadSpriteModel(modelName, reader, loadPalette, logger);
+             return loadSpriteModel(modelName, reader, loadPalette, fs, logger);
            }
            if (canLoadMd3Model(path, reader))
            {

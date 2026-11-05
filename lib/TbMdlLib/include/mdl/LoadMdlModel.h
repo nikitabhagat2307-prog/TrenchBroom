@@ -31,6 +31,11 @@ namespace tb
 {
 class Logger;
 
+namespace fs
+{
+class FileSystem;
+} // namespace fs
+
 namespace mdl
 {
 
@@ -40,6 +45,7 @@ Result<EntityModelData> loadMdlModel(
   const std::string& name,
   fs::Reader reader,
   const LoadPaletteFunc& loadPalette,
+  const fs::FileSystem& fs,
   Logger& logger);
 
 } // namespace mdl
