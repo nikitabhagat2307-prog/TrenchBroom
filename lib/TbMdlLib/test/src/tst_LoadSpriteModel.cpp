@@ -23,7 +23,6 @@
 #include "fs/DiskIO.h"
 #include "fs/Reader.h"
 #include "gl/Material.h"
-#include "gl/Texture.h"
 #include "mdl/CatchConfig.h"
 #include "mdl/EntityModel.h"
 #include "mdl/LoadSpriteModel.h"
